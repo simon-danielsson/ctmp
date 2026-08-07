@@ -12,6 +12,9 @@ typedef struct {
     char *author;
     char *contact;
     char *website;
+    char *git_tag;
+    char *git_hash;
+    char *git_repo_url;
     char *c_standard;
 } EnvVars;
 
@@ -21,6 +24,9 @@ global_var EnvVars env_variables =
     .author = "Simon Danielsson",
     .contact = "contact@simondanielsson.se",
     .website = "https://simondanielsson.se/",
+    .git_tag = NULL,
+    .git_hash = NULL,
+    .git_repo_url = NULL,
     .c_standard = "c99"};
 
 #define COMP_FLAGS_COUNT 9
@@ -63,6 +69,8 @@ void append_env_variables(Nob_Cmd *cmd);
 #define MAX_ENV_VALUE_LEN 256
 void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
         bool c_standard);
+
+intern_fn void get_git_details(void);
 
 typedef enum {
     ARG_BUILD,
@@ -147,11 +155,17 @@ int main(int argc, char **argv) {
         }
 
         {
+            get_git_details();
+
             append_env_var(&cmd, "-DENV_PROJECT", env_variables.project, false);
             append_env_var(&cmd, "-DENV_DESCR", env_variables.description, false);
             append_env_var(&cmd, "-DENV_AUTHOR", env_variables.author, false);
             append_env_var(&cmd, "-DENV_CONTACT", env_variables.contact, false);
             append_env_var(&cmd, "-DENV_WEBSITE", env_variables.website, false);
+            append_env_var(&cmd, "-DENV_GIT_TAG", env_variables.author, false);
+            append_env_var(&cmd, "-DENV_GIT_HASH", env_variables.contact, false);
+            append_env_var(&cmd, "-DENV_GIT_ORIGIN_URL", env_variables.website,
+                    false);
             append_env_var(&cmd, "-std", env_variables.c_standard, true);
         }
 
@@ -295,6 +309,9 @@ intern_fn void print_help() {
 
 void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
         bool c_standard) {
+    if (value == NULL) {
+        return;
+    }
     char *tmp = malloc(MAX_ENV_VALUE_LEN);
     if (c_standard) {
         snprintf(tmp, MAX_ENV_VALUE_LEN, "%s=%s", prefix, value);
@@ -302,4 +319,42 @@ void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
         snprintf(tmp, MAX_ENV_VALUE_LEN, "%s=\"%s\"", prefix, value);
     }
     nob_cmd_append(cmd, tmp);
+}
+
+intern_fn void get_git_details(void) {
+    // Get git tag
+    {
+        Nob_Cmd cmd = {0};
+        nob_cmd_append(&cmd, "git", "describe", "--tags", "--abbrev=0");
+        const char *tmp = DIR_BUILD "git_tag.tmp";
+        if (nob_cmd_run(&cmd, .stdout_path = tmp)) {
+            String_Builder sb = {0};
+            if (nob_read_entire_file(tmp, &sb)) {
+                while (sb.count > 0 && (sb.items[sb.count - 1] == '\n' ||
+                            sb.items[sb.count - 1] == '\r'))
+                    sb.count--;
+                sb_append_null(&sb);
+                env_variables.git_tag = strdup(sb.items);
+            }
+            sb_free(sb);
+        }
+    }
+
+    // Get git hash
+    {
+        Nob_Cmd cmd = {0};
+        nob_cmd_append(&cmd, "git", "rev-parse", "HEAD");
+        const char *tmp = DIR_BUILD "git_hash.tmp";
+        if (nob_cmd_run(&cmd, .stdout_path = tmp)) {
+            String_Builder sb = {0};
+            if (nob_read_entire_file(tmp, &sb)) {
+                while (sb.count > 0 && (sb.items[sb.count - 1] == '\n' ||
+                            sb.items[sb.count - 1] == '\r'))
+                    sb.count--;
+                sb_append_null(&sb);
+                env_variables.git_hash = strdup(sb.items);
+            }
+            sb_free(sb);
+        }
+    }
 }
