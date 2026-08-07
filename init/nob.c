@@ -262,8 +262,18 @@ char *format_path_to_name(const char *filename) {
 
 void embed_static(const char *path) {
     char dir[256] = {0};
-    const char *filename = nob_path_name(path);
 
+    const char *last_slash = strrchr(path, '/');
+    if (last_slash) {
+        size_t dir_len = last_slash - path + 1;
+        if (dir_len >= sizeof(dir)) {
+            return;
+        }
+        memcpy(dir, path, dir_len);
+        dir[dir_len] = '\0';
+    }
+
+    const char *filename = nob_path_name(path);
     char *formatted_name = format_path_to_name(filename);
 
     char output_path[512] = {0};
