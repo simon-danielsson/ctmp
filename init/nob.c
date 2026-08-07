@@ -1,4 +1,3 @@
-#define PROJ_NAME "hello"
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 #include "src/main.h"
