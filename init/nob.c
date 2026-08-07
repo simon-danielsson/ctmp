@@ -91,6 +91,8 @@ int main(int argc, char **argv) {
     char *build_args[128] = {0};
     size_t build_args_count = 0;
 
+    char bin_name[256] = {0};
+
     {
         uint i = 0;
         ArgParserState aps = ARG_BUILD;
@@ -173,7 +175,13 @@ int main(int argc, char **argv) {
             nob_cmd_append(&cmd, compilation_flags[i]);
         }
 
-        nob_cc_output(&cmd, DIR_BUILD PROJ_NAME);
+        // append bin dest
+        snprintf(bin_name, 256, "%s%s-%.7s-%s", DIR_BUILD, PROJ_NAME,
+                env_variables.git_hash, env_variables.git_tag);
+        {
+            nob_cc_output(&cmd, bin_name);
+        }
+
         for (size_t i = 0; i < src_files_count; i++) {
             nob_cmd_append(&cmd, src_files[i]);
         }
@@ -185,7 +193,7 @@ int main(int argc, char **argv) {
     // run
     {
         Nob_Cmd cmd_run = {0};
-        nob_cmd_append(&cmd_run, DIR_BUILD PROJ_NAME);
+        nob_cmd_append(&cmd_run, bin_name);
         for (size_t i = 0; i < prg_args_count; i++) {
             nob_cmd_append(&cmd_run, prg_args[i]);
         }
