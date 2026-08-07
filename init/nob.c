@@ -18,16 +18,17 @@ typedef struct {
     char *c_standard;
 } EnvVars;
 
-global_var EnvVars env_variables =
-(EnvVars){.project = PROJ_NAME,
+global_var EnvVars env_variables = (EnvVars){
+    .project = PROJ_NAME,
     .description = "This is a new C project!",
     .author = "Simon Danielsson",
     .contact = "contact@simondanielsson.se",
     .website = "https://simondanielsson.se/",
-    .git_tag = NULL,
-    .git_hash = NULL,
+    .c_standard = "c99",
     .git_repo_url = NULL,
-    .c_standard = "c99"};
+    .git_tag = NULL,  // added dynamically
+    .git_hash = NULL, // added dynamically
+};
 
 #define COMP_FLAGS_COUNT 9
 global_var char *compilation_flags[COMP_FLAGS_COUNT] = {
@@ -48,7 +49,9 @@ global_var char *compilation_flags_release[COMP_FLAGS_REL_COUNT] = {
 
 // definitions ----------------------------------------------------------------
 
-#define DIR_BUILD "./build/"
+#define DIR_BUILD "./build"
+#define DIR_BUILD_DEBUG "./build/debug/"
+#define DIR_BUILD_RELEASE "./build/release/"
 #define DIR_SRC "./src"
 #define DIR_STATIC "./src/static"
 #define DIR_TESTS "./tests"
@@ -70,14 +73,21 @@ void append_env_variables(Nob_Cmd *cmd);
 void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
         bool c_standard);
 
-intern_fn void get_git_details(void);
+intern_fn void get_git_details(bool release_build);
 
 typedef enum {
     ARG_BUILD,
     ARG_PRG,
 } ArgParserState;
 
-typedef enum { A_HELP, A_HELP_LONG, A_TEST } Arg;
+typedef enum {
+    A_HELP,
+    A_HELP_LONG,
+    A_NO_RUN,
+    A_NO_RUN_LONG,
+    A_TEST,
+    A_RELEASE
+} Arg;
 
 intern_fn const char *arg_to_str(Arg a);
 
@@ -92,14 +102,25 @@ int main(int argc, char **argv) {
     size_t build_args_count = 0;
 
     char bin_name[256] = {0};
+    bool release_build = false;
+    bool no_run = false;
 
     {
         uint i = 0;
         ArgParserState aps = ARG_BUILD;
         while (argv[i]) {
+            if (aps == ARG_PRG) {
+                prg_args[prg_args_count++] = strdup(argv[i]);
+                i++;
+                continue;
+            }
 
             if (strcmp(argv[i], arg_to_str(A_TEST)) == 0) {
                 build_args[build_args_count++] = "-DTEST";
+            }
+
+            if (strcmp(argv[i], arg_to_str(A_RELEASE)) == 0) {
+                release_build = true;
             }
 
             if (strcmp(argv[i], arg_to_str(A_HELP)) == 0 ||
@@ -108,15 +129,17 @@ int main(int argc, char **argv) {
                 return 0;
             }
 
+            if (strcmp(argv[i], arg_to_str(A_NO_RUN)) == 0 ||
+                    strcmp(argv[i], arg_to_str(A_NO_RUN_LONG)) == 0) {
+                no_run = true;
+            }
+
             if (strcmp(argv[i], "--") == 0) {
                 aps = ARG_PRG;
                 i++;
                 continue;
             }
 
-            if (aps == ARG_PRG) {
-                prg_args[prg_args_count++] = strdup(argv[i]);
-            }
             i++;
         }
     }
@@ -124,6 +147,10 @@ int main(int argc, char **argv) {
     GO_REBUILD_URSELF(argc, argv);
 
     if (!nob_mkdir_if_not_exists(DIR_BUILD))
+        return 1;
+    if (!nob_mkdir_if_not_exists(DIR_BUILD_DEBUG))
+        return 1;
+    if (!nob_mkdir_if_not_exists(DIR_BUILD_RELEASE))
         return 1;
 
     // collect '.c' files
@@ -157,7 +184,7 @@ int main(int argc, char **argv) {
         }
 
         {
-            get_git_details();
+            get_git_details(release_build);
 
             append_env_var(&cmd, "-DENV_PROJECT", env_variables.project, false);
             append_env_var(&cmd, "-DENV_DESCR", env_variables.description, false);
@@ -171,16 +198,23 @@ int main(int argc, char **argv) {
             append_env_var(&cmd, "-std", env_variables.c_standard, true);
         }
 
-        for (size_t i = 0; i < COMP_FLAGS_COUNT; i++) {
-            nob_cmd_append(&cmd, compilation_flags[i]);
+        const char *build_folder;
+        if (!release_build) {
+            for (size_t i = 0; i < COMP_FLAGS_COUNT; i++) {
+                nob_cmd_append(&cmd, compilation_flags[i]);
+                build_folder = DIR_BUILD_DEBUG;
+            }
+        } else {
+            for (size_t i = 0; i < COMP_FLAGS_REL_COUNT; i++) {
+                nob_cmd_append(&cmd, compilation_flags_release[i]);
+                build_folder = DIR_BUILD_RELEASE;
+            }
         }
 
-        // append bin dest
-        snprintf(bin_name, 256, "%s%s-%.7s-%s", DIR_BUILD, PROJ_NAME,
+        snprintf(bin_name, 256, "%s%s-%.7s-%s", build_folder, PROJ_NAME,
                 env_variables.git_hash, env_variables.git_tag);
-        {
-            nob_cc_output(&cmd, bin_name);
-        }
+
+        nob_cc_output(&cmd, bin_name);
 
         for (size_t i = 0; i < src_files_count; i++) {
             nob_cmd_append(&cmd, src_files[i]);
@@ -191,7 +225,7 @@ int main(int argc, char **argv) {
     }
 
     // run
-    {
+    if (!no_run) {
         Nob_Cmd cmd_run = {0};
         nob_cmd_append(&cmd_run, bin_name);
         for (size_t i = 0; i < prg_args_count; i++) {
@@ -298,8 +332,14 @@ intern_fn const char *arg_to_str(Arg a) {
             return "-h";
         case A_HELP_LONG:
             return "--help";
+        case A_NO_RUN:
+            return "-n";
+        case A_NO_RUN_LONG:
+            return "--no-run";
         case A_TEST:
             return "test";
+        case A_RELEASE:
+            return "release";
         default:
             return "--help";
     }
@@ -308,12 +348,15 @@ intern_fn const char *arg_to_str(Arg a) {
 intern_fn void print_help() {
     printf("USAGE\n");
     printf("    ./nob [options|command]\n\n");
-    printf("    * Run without any options to build and run a debug build.\n");
+    printf("    * Execute without options to compile and run a debug build.\n");
     printf("    * Program arguments are passed after a divider '--'.\n\n");
     printf("META OPTIONS\n");
     printf("    %-22s %s\n", "-h, --help", "Display help.");
+    printf("\nOPTIONS\n");
+    printf("    %-22s %s\n", "-n, --no-run", "Don't run after compilation.");
     printf("\nCOMMANDS\n");
     printf("    %-22s %s\n", "test", "Run test(s).");
+    printf("    %-22s %s\n", "release", "Compile and run a release build.");
 }
 
 void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
@@ -330,12 +373,20 @@ void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
     nob_cmd_append(cmd, tmp);
 }
 
-intern_fn void get_git_details(void) {
+intern_fn void get_git_details(bool release_build) {
+    char *build_folder;
     // tag
     {
         Nob_Cmd cmd = {0};
         nob_cmd_append(&cmd, "git", "describe", "--tags", "--abbrev=0");
-        const char *tmp = DIR_BUILD "git_tag.tmp";
+        char *tmp;
+        if (release_build) {
+            tmp = DIR_BUILD_RELEASE "git_tag.tmp";
+            build_folder = DIR_BUILD_RELEASE;
+        } else {
+            tmp = DIR_BUILD_DEBUG "git_tag.tmp";
+            build_folder = DIR_BUILD_DEBUG;
+        }
         if (nob_cmd_run(&cmd, .stdout_path = tmp)) {
             String_Builder sb = {0};
             if (nob_read_entire_file(tmp, &sb)) {
@@ -353,7 +404,15 @@ intern_fn void get_git_details(void) {
     {
         Nob_Cmd cmd = {0};
         nob_cmd_append(&cmd, "git", "rev-parse", "HEAD");
-        const char *tmp = DIR_BUILD "git_hash.tmp";
+        char *tmp;
+        if (release_build) {
+            tmp = DIR_BUILD_RELEASE "git_hash.tmp";
+            build_folder = DIR_BUILD_RELEASE;
+        } else {
+            tmp = DIR_BUILD_DEBUG "git_hash.tmp";
+            build_folder = DIR_BUILD_DEBUG;
+        }
+
         if (nob_cmd_run(&cmd, .stdout_path = tmp)) {
             String_Builder sb = {0};
             if (nob_read_entire_file(tmp, &sb)) {

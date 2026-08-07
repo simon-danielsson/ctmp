@@ -104,14 +104,18 @@ The generated project will have the following hierarchy:
 USAGE
     ./nob [options|command]
 
-    * Running './nob' without any arguments will build and run a debug build.
+    * Execute without options to compile and run a debug build.
     * Program arguments are passed after a divider '--'.
 
 META OPTIONS
     -h, --help             Display help.
 
+OPTIONS
+    -n, --no-run           Don't run after compilation.
+
 COMMANDS
     test                   Run test(s).
+    release                Compile and run a release build.
 ```
   
 ---
