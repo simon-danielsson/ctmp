@@ -300,8 +300,9 @@ intern_fn const char *arg_to_str(Arg a) {
 
 intern_fn void print_help() {
     printf("USAGE\n");
-    printf("    ./nob [options|command]\n");
-    printf("    Program arguments are passed after a divider '--'.\n\n");
+    printf("    ./nob [options|command]\n\n");
+    printf("    * Run without any options to build and run a debug build.\n");
+    printf("    * Program arguments are passed after a divider '--'.\n\n");
     printf("META OPTIONS\n");
     printf("    %-22s %s\n", "-h, --help", "Display help.");
     printf("\nCOMMANDS\n");
