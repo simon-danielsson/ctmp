@@ -17,21 +17,20 @@
 
 ## Info
   
-This is my opinionated template for initializing, building, and maintaining C projects. Powered by [nob.h](https://github.com/tsoding/nob.h)
+This is my opinionated template for initializing, building, and maintaining C projects. Powered by [nob.h](https://github.com/tsoding/nob.h).
   
 > [!IMPORTANT]
-> This template is designed for myself specifically. If adopting this system yourself I recommend that you fork this repo and set it up to your own liking.
+> This template is designed for myself specifically. I would recommend (if you're adopting this system yourself) that you fork or clone this repo and set it up to your own liking.
   
 ### Features
-- Ultra portable
-    - No dependencies except for a C compiler.
-- Convert static files to header files automatically.
+- Portable code.
+    - No external dependencies apart from a C compiler.
+- Static file header generation.
     - [nob.c](init/nob.c) collects all the files within 'src/static' and embeds their contents into header files for use within your program.
     - This feature is obviously not necessary if you're using [c23](https://en.cppreference.com/c/preprocessor/embed).
-- Project environment variables (inspired by [uv](https://github.com/astral-sh/uv) and [cargo](https://github.com/rust-lang/cargo))
-  
-### Requirements
-- gcc/clang/msvc
+- Project environment variables (inspired by [uv](https://github.com/astral-sh/uv) and [cargo](https://github.com/rust-lang/cargo)).
+    - Configurable within [nob.c](init/nob.c).
+    - Accessible as pre-processor macros within your program.
   
 <div id="install"></div>
   
