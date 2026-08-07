@@ -48,7 +48,7 @@ typedef uint32_t uint;
 #ifndef ENV_GIT_HASH
 #define ENV_GIT_HASH "UNDEFINED"
 #endif
-#ifndef ENV_GIT_ORIGIN_URL
-#define ENV_GIT_ORIGIN_URL "UNDEFINED"
+#ifndef ENV_GIT_REPO_URL
+#define ENV_GIT_REPO_URL "UNDEFINED"
 #endif
 #endif

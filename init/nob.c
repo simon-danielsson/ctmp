@@ -1,3 +1,4 @@
+#define PROJ_NAME "hello"
 #define NOB_IMPLEMENTATION
 #include "nob.h"
 #include "src/main.h"
@@ -162,9 +163,9 @@ int main(int argc, char **argv) {
             append_env_var(&cmd, "-DENV_AUTHOR", env_variables.author, false);
             append_env_var(&cmd, "-DENV_CONTACT", env_variables.contact, false);
             append_env_var(&cmd, "-DENV_WEBSITE", env_variables.website, false);
-            append_env_var(&cmd, "-DENV_GIT_TAG", env_variables.author, false);
-            append_env_var(&cmd, "-DENV_GIT_HASH", env_variables.contact, false);
-            append_env_var(&cmd, "-DENV_GIT_ORIGIN_URL", env_variables.website,
+            append_env_var(&cmd, "-DENV_GIT_TAG", env_variables.git_tag, false);
+            append_env_var(&cmd, "-DENV_GIT_HASH", env_variables.git_hash, false);
+            append_env_var(&cmd, "-DENV_GIT_REPO_URL", env_variables.git_repo_url,
                     false);
             append_env_var(&cmd, "-std", env_variables.c_standard, true);
         }
@@ -322,7 +323,7 @@ void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
 }
 
 intern_fn void get_git_details(void) {
-    // Get git tag
+    // tag
     {
         Nob_Cmd cmd = {0};
         nob_cmd_append(&cmd, "git", "describe", "--tags", "--abbrev=0");
@@ -340,7 +341,7 @@ intern_fn void get_git_details(void) {
         }
     }
 
-    // Get git hash
+    // hash
     {
         Nob_Cmd cmd = {0};
         nob_cmd_append(&cmd, "git", "rev-parse", "HEAD");
