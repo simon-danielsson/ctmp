@@ -1,8 +1,8 @@
 #include "../src/main.h"
 
-static void test1(void) { printf("test 1"); }
-static void test2(void) { printf("test 2"); }
-static void test3(void) { printf("test 3"); }
+static void test1(void) { test_assert(true); }
+static void test2(void) { test_assert(false); }
+static void test3(void) { test_assert(true); }
 
 typedef void (*test_fn)(void);
 
