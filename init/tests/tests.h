@@ -1,7 +1,7 @@
 #ifndef TESTS_H
 #define TESTS_H
 
-void _run_tests(void);
+#include "../src/main.h"
 
 #define test_assert(cond)                                                      \
   do {                                                                         \
