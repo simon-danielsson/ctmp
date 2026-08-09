@@ -70,36 +70,59 @@ void append_env_variables(Nob_Cmd *cmd);
 void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
         bool c_standard);
 
-intern_fn void get_git_details(bool release_build);
-
 typedef enum {
     ARG_BUILD,
     ARG_PRG,
 } ArgParserState;
 
-typedef enum {
-    A_HELP,
-    A_HELP_LONG,
-    A_NO_RUN,
-    A_NO_RUN_LONG,
-    A_TEST,
-    A_RELEASE
+typedef enum { NORMAL, F_HELP, F_NO_RUN, C_TEST, C_RELEASE, C_EMBED } ArgKind;
+
+intern_fn void get_git_details(ArgKind build_kind);
+
+typedef struct {
+    ArgKind kind;
+    char *str;
+    char *str_alt;
+    char *descr;
 } Arg;
 
-intern_fn const char *arg_to_str(Arg a);
+global_var Arg arguments[] = {
+    [F_HELP] = (Arg){.kind = F_HELP,
+        .str = "-h",
+        .str_alt = "--help",
+        .descr = "Display help."},
+    [F_NO_RUN] = (Arg){.kind = F_NO_RUN,
+        .str = "-n",
+        .str_alt = "--no-run",
+        .descr = "Don't run binary after compilation."},
+    [C_TEST] = (Arg){.kind = C_TEST,
+        .str = "test",
+        .str_alt = NULL,
+        .descr = "Run test(s) in 'tests.c'."},
+    [C_RELEASE] = (Arg){.kind = C_RELEASE,
+        .str = "release",
+        .str_alt = NULL,
+        .descr = "Compile and run a release build."},
+    [C_EMBED] =
+        (Arg){.kind = C_EMBED,
+            .str = "embed",
+            .str_alt = NULL,
+            .descr =
+                "Embed content of files in 'src/static' into header files."},
+};
 
 // program --------------------------------------------------------------------
 
 int main(int argc, char **argv) {
 
-    char *prg_args[128] = {0};
+    char *prg_args[24] = {0};
     size_t prg_args_count = 0;
 
-    char *build_args[128] = {0};
+    char *build_args[24] = {0};
     size_t build_args_count = 0;
 
     char bin_name[256] = {0};
-    bool release_build = false;
+    ArgKind build_type = NORMAL;
     bool no_run = false;
 
     {
@@ -110,28 +133,22 @@ int main(int argc, char **argv) {
                 prg_args[prg_args_count++] = strdup(argv[i]);
                 i++;
                 continue;
-            }
-
-            if (strcmp(argv[i], arg_to_str(A_TEST)) == 0) {
+            } else if (strcmp(argv[i], arguments[C_TEST].str) == 0) {
+                build_type = NORMAL;
                 build_args[build_args_count++] = "-DTEST";
-            }
-
-            if (strcmp(argv[i], arg_to_str(A_RELEASE)) == 0) {
-                release_build = true;
-            }
-
-            if (strcmp(argv[i], arg_to_str(A_HELP)) == 0 ||
-                    strcmp(argv[i], arg_to_str(A_HELP_LONG)) == 0) {
+                break;
+            } else if (strcmp(argv[i], arguments[C_RELEASE].str) == 0) {
+                build_type = C_RELEASE;
+            } else if (strcmp(argv[i], arguments[C_EMBED].str) == 0) {
+                build_type = C_EMBED;
+            } else if (strcmp(argv[i], arguments[F_HELP].str) == 0 ||
+                    strcmp(argv[i], arguments[F_HELP].str_alt) == 0) {
                 print_help();
                 return 0;
-            }
-
-            if (strcmp(argv[i], arg_to_str(A_NO_RUN)) == 0 ||
-                    strcmp(argv[i], arg_to_str(A_NO_RUN_LONG)) == 0) {
+            } else if (strcmp(argv[i], arguments[F_NO_RUN].str) == 0 ||
+                    strcmp(argv[i], arguments[F_NO_RUN].str_alt) == 0) {
                 no_run = true;
-            }
-
-            if (strcmp(argv[i], "--") == 0) {
+            } else if (strcmp(argv[i], "--") == 0) {
                 aps = ARG_PRG;
                 i++;
                 continue;
@@ -141,25 +158,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    GO_REBUILD_URSELF(argc, argv);
-
-    if (!nob_mkdir_if_not_exists(DIR_BUILD))
-        return 1;
-    if (!nob_mkdir_if_not_exists(DIR_BUILD_DEBUG))
-        return 1;
-    if (!nob_mkdir_if_not_exists(DIR_BUILD_RELEASE))
-        return 1;
-
-    // collect '.c' files
-    {
-        if (!nob_walk_dir(DIR_SRC, collect_src_files))
-            return 1;
-        if (!nob_walk_dir(DIR_TESTS, collect_src_files))
-            return 1;
-    }
-
     // collect and embed static files
-    {
+    if (build_type == C_EMBED) {
         if (!nob_mkdir_if_not_exists(DIR_STATIC))
             return 1;
         if (!nob_walk_dir(DIR_STATIC, collect_static_files))
@@ -168,6 +168,24 @@ int main(int argc, char **argv) {
             for (size_t i = 0; i < static_files_count; i++)
                 embed_static(static_files[i]);
         }
+        return 0;
+    }
+
+    GO_REBUILD_URSELF(argc, argv);
+
+    if (!nob_mkdir_if_not_exists(DIR_BUILD))
+        return 1;
+    if (!nob_mkdir_if_not_exists(DIR_BUILD_DEBUG) && build_type == NORMAL)
+        return 1;
+    if (!nob_mkdir_if_not_exists(DIR_BUILD_RELEASE) && build_type == C_RELEASE)
+        return 1;
+
+    // collect '.c' files
+    {
+        if (!nob_walk_dir(DIR_SRC, collect_src_files))
+            return 1;
+        if (!nob_walk_dir(DIR_TESTS, collect_src_files))
+            return 1;
     }
 
     // build
@@ -181,7 +199,7 @@ int main(int argc, char **argv) {
         }
 
         {
-            get_git_details(release_build);
+            get_git_details(build_type);
 
             append_env_var(&cmd, "-DENV_PROJECT", env_variables.project, false);
             append_env_var(&cmd, "-DENV_DESCR", env_variables.description, false);
@@ -196,7 +214,7 @@ int main(int argc, char **argv) {
         }
 
         const char *build_folder;
-        if (!release_build) {
+        if (build_type != C_RELEASE) {
             for (size_t i = 0;
                     i < sizeof(compilation_flags) / sizeof(compilation_flags[0]); i++) {
                 nob_cmd_append(&cmd, compilation_flags[i]);
@@ -318,9 +336,8 @@ void embed_static(const char *path) {
 
 bool collect_src_files(Nob_Walk_Entry entry) {
     if (entry.type == FILE_REGULAR && strstr(entry.path, ".c")) {
-        if (src_files_count + 1 >= MAX_SRC_FILES) {
+        if (src_files_count + 1 >= MAX_SRC_FILES)
             return false;
-        }
         src_files[src_files_count++] = strdup(entry.path);
     }
     return true;
@@ -328,86 +345,64 @@ bool collect_src_files(Nob_Walk_Entry entry) {
 
 bool collect_static_files(Nob_Walk_Entry entry) {
     if (entry.type == FILE_REGULAR && !strstr(entry.path, ".h")) {
-        if (static_files_count + 1 >= MAX_SRC_FILES) {
+        if (static_files_count + 1 >= MAX_SRC_FILES)
             return false;
-        }
         static_files[static_files_count++] = strdup(entry.path);
     }
     return true;
 }
 
-intern_fn const char *arg_to_str(Arg a) {
-    switch (a) {
-        case A_HELP:
-            return "-h";
-        case A_HELP_LONG:
-            return "--help";
-        case A_NO_RUN:
-            return "-n";
-        case A_NO_RUN_LONG:
-            return "--no-run";
-        case A_TEST:
-            return "test";
-        case A_RELEASE:
-            return "release";
-        default:
-            return "--help";
-    }
-}
-
 intern_fn void print_help() {
-    printf("USAGE\n");
-    printf("    ./nob [options|command]\n\n");
-    printf("    * Execute without options to compile and run a debug build.\n");
-    printf("    * Program arguments are passed after a divider '--'.\n\n");
-    printf("META OPTIONS\n");
-    printf("    %-22s %s\n", "-h, --help", "Display help.");
-    printf("\nOPTIONS\n");
-    printf("    %-22s %s\n", "-n, --no-run", "Don't run after compilation.");
-    printf("\nCOMMANDS\n");
-    printf("    %-22s %s\n", "test", "Run test(s).");
-    printf("    %-22s %s\n", "release", "Compile and run a release build.");
+    printf("./nob [options|command]\n\n");
+    printf("* Execute without options to compile and run a debug build.\n");
+    printf("* Program arguments are passed after a divider '--'.\n\n");
+    for (size_t i = 1; i < sizeof(arguments) / sizeof(arguments[1]); i++) {
+        if (arguments[i].str_alt != NULL) {
+            char tmp[128] = {0};
+            snprintf(tmp, 128, "%s, %s", arguments[i].str, arguments[i].str_alt);
+            printf("%-22s %s\n", tmp, arguments[i].descr);
+        } else {
+            printf("%-22s %s\n", arguments[i].str, arguments[i].descr);
+        }
+    }
 }
 
 void append_env_var(Nob_Cmd *cmd, const char *prefix, const char *value,
         bool c_standard) {
-    if (value == NULL) {
+    if (value == NULL)
         return;
-    }
-    char *tmp = malloc(MAX_ENV_VALUE_LEN);
-    if (c_standard) {
-        snprintf(tmp, MAX_ENV_VALUE_LEN, "%s=%s", prefix, value);
-    } else {
-        snprintf(tmp, MAX_ENV_VALUE_LEN, "%s=\"%s\"", prefix, value);
-    }
+    char *tmp = c_standard ? nob_temp_sprintf("%s=%s", prefix, value)
+        : nob_temp_sprintf("%s=\"%s\"", prefix, value);
     nob_cmd_append(cmd, tmp);
 }
 
-intern_fn void get_git_details(bool release_build) {
-    char *build_folder;
+#define get_git_details_helper(env)                                            \
+    do {                                                                         \
+        if (nob_cmd_run(&cmd, .stdout_path = tmp)) {                               \
+            String_Builder sb = {0};                                                 \
+            if (nob_read_entire_file(tmp, &sb)) {                                    \
+                while (sb.count > 0 && (sb.items[sb.count - 1] == '\n' ||              \
+                            sb.items[sb.count - 1] == '\r'))               \
+                sb.count--;                                                          \
+                sb_append_null(&sb);                                                   \
+                (env) = strdup(sb.items);                                              \
+            }                                                                        \
+            sb_free(sb);                                                             \
+        }                                                                          \
+    } while (0)
+
+intern_fn void get_git_details(ArgKind build_kind) {
     // tag
     {
         Nob_Cmd cmd = {0};
         nob_cmd_append(&cmd, "git", "describe", "--tags", "--abbrev=0");
         char *tmp;
-        if (release_build) {
+        if (build_kind == C_RELEASE) {
             tmp = DIR_BUILD_RELEASE "git_tag.tmp";
-            build_folder = DIR_BUILD_RELEASE;
         } else {
             tmp = DIR_BUILD_DEBUG "git_tag.tmp";
-            build_folder = DIR_BUILD_DEBUG;
         }
-        if (nob_cmd_run(&cmd, .stdout_path = tmp)) {
-            String_Builder sb = {0};
-            if (nob_read_entire_file(tmp, &sb)) {
-                while (sb.count > 0 && (sb.items[sb.count - 1] == '\n' ||
-                            sb.items[sb.count - 1] == '\r'))
-                    sb.count--;
-                sb_append_null(&sb);
-                env_variables.git_tag = strdup(sb.items);
-            }
-            sb_free(sb);
-        }
+        get_git_details_helper(env_variables.git_tag);
     }
 
     // hash
@@ -415,24 +410,11 @@ intern_fn void get_git_details(bool release_build) {
         Nob_Cmd cmd = {0};
         nob_cmd_append(&cmd, "git", "rev-parse", "HEAD");
         char *tmp;
-        if (release_build) {
+        if (build_kind == C_RELEASE) {
             tmp = DIR_BUILD_RELEASE "git_hash.tmp";
-            build_folder = DIR_BUILD_RELEASE;
         } else {
             tmp = DIR_BUILD_DEBUG "git_hash.tmp";
-            build_folder = DIR_BUILD_DEBUG;
         }
-
-        if (nob_cmd_run(&cmd, .stdout_path = tmp)) {
-            String_Builder sb = {0};
-            if (nob_read_entire_file(tmp, &sb)) {
-                while (sb.count > 0 && (sb.items[sb.count - 1] == '\n' ||
-                            sb.items[sb.count - 1] == '\r'))
-                    sb.count--;
-                sb_append_null(&sb);
-                env_variables.git_hash = strdup(sb.items);
-            }
-            sb_free(sb);
-        }
+        get_git_details_helper(env_variables.git_hash);
     }
 }
