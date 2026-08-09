@@ -25,13 +25,12 @@ global_var EnvVars env_variables = (EnvVars){
     .contact = "contact@simondanielsson.se",
     .website = "https://simondanielsson.se/",
     .c_standard = "c99",
-    .git_repo_url = NULL,
+    .git_repo_url = "https://github.com/simon-danielsson/" PROJ_NAME,
     .git_tag = NULL,  // added dynamically
     .git_hash = NULL, // added dynamically
 };
 
-#define COMP_FLAGS_COUNT 9
-global_var char *compilation_flags[COMP_FLAGS_COUNT] = {
+global_var char *compilation_flags[] = {
     "-O0",
     "-DDEBUG",
     "-fsanitize=address",
@@ -43,9 +42,7 @@ global_var char *compilation_flags[COMP_FLAGS_COUNT] = {
     "-Werror=format-security",
 };
 
-#define COMP_FLAGS_REL_COUNT 3
-global_var char *compilation_flags_release[COMP_FLAGS_REL_COUNT] = {
-    "-flto", "-O2", "-DNDEBUG"};
+global_var char *compilation_flags_release[] = {"-flto", "-O2", "-DNDEBUG"};
 
 // definitions ----------------------------------------------------------------
 
@@ -200,12 +197,15 @@ int main(int argc, char **argv) {
 
         const char *build_folder;
         if (!release_build) {
-            for (size_t i = 0; i < COMP_FLAGS_COUNT; i++) {
+            for (size_t i = 0;
+                    i < sizeof(compilation_flags) / sizeof(compilation_flags[0]); i++) {
                 nob_cmd_append(&cmd, compilation_flags[i]);
                 build_folder = DIR_BUILD_DEBUG;
             }
         } else {
-            for (size_t i = 0; i < COMP_FLAGS_REL_COUNT; i++) {
+            for (size_t i = 0; i < sizeof(compilation_flags_release) /
+                    sizeof(compilation_flags_release[0]);
+                    i++) {
                 nob_cmd_append(&cmd, compilation_flags_release[i]);
                 build_folder = DIR_BUILD_RELEASE;
             }
