@@ -82,7 +82,7 @@ cinit <project-name>
 The generated project will have the following hierarchy:  
   
 ``` terminal
-(root)
+/root
 ├── .clangd
 ├── LICENSE
 ├── nob
@@ -99,21 +99,16 @@ The generated project will have the following hierarchy:
 ### CLI commands (nob)
   
 ``` terminal
-USAGE
-    ./nob [options|command]
+./nob [options|command]
 
-    * Execute without options to compile and run a debug build.
-    * Program arguments are passed after a divider '--'.
+* Execute without options to compile and run a debug build.
+* Program arguments are passed after a divider '--'.
 
-META OPTIONS
-    -h, --help             Display help.
-
-OPTIONS
-    -n, --no-run           Don't run after compilation.
-
-COMMANDS
-    test                   Run test(s).
-    release                Compile and run a release build.
+-h, --help             Display help.
+-n, --no-run           Don't run binary after compilation.
+test                   Run test(s) in 'tests.c'.
+release                Compile and run a release build.
+embed                  Embed content of files in 'src/static' into header files.
 ```
   
 ---
