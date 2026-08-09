@@ -80,6 +80,8 @@ The generated project will have the following hierarchy:
 ``` terminal
 /root
 ├── .clangd
+├── .git
+├── .gitignore
 ├── LICENSE
 ├── nob
 ├── nob.c
