@@ -6,10 +6,10 @@ void _run_tests(void);
 #define test_assert(cond)                                                      \
   do {                                                                         \
     if (!(cond)) {                                                             \
-      fprintf(stderr, "\033[4mFailure • %s:%d (%s)\033[0m\n", __func__,        \
+      fprintf(stderr, "\033[4;31mFAILURE :: %s:%d (%s)\033[0m\n", __func__,    \
               __LINE__, #cond);                                                \
     } else {                                                                   \
-      fprintf(stderr, "Success • %s:%d (%s)\n", __func__, __LINE__, #cond);    \
+      fprintf(stderr, "SUCCESS :: %s:%d (%s)\n", __func__, __LINE__, #cond);   \
     }                                                                          \
   } while (0)
 
