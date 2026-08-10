@@ -152,6 +152,9 @@ int main(int argc, char **argv) {
                 aps = ARG_PRG;
                 i++;
                 continue;
+            } else {
+                nob_log(NOB_ERROR, "Unknown argument: '%s'", argv[i]);
+                return EXIT_FAILURE;
             }
 
             i++;
