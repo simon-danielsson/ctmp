@@ -1,4 +1,5 @@
 #define NOB_IMPLEMENTATION
+#define NOB_NO_ECHO
 #include "nob.h"
 #include "src/main.h"
 
