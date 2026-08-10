@@ -1,5 +1,4 @@
 #define NOB_IMPLEMENTATION
-#define NOB_NO_ECHO
 #include "nob.h"
 #include "src/main.h"
 
@@ -76,7 +75,15 @@ typedef enum {
     ARG_PRG,
 } ArgParserState;
 
-typedef enum { NORMAL, F_HELP, F_NO_RUN, C_TEST, C_RELEASE, C_EMBED } ArgKind;
+typedef enum {
+    NORMAL,
+    F_HELP,
+    F_VERBOSE,
+    F_NO_RUN,
+    C_TEST,
+    C_RELEASE,
+    C_EMBED
+} ArgKind;
 
 intern_fn void get_git_details(ArgKind build_kind);
 
@@ -92,6 +99,12 @@ global_var Arg arguments[] = {
         .str = "-h",
         .str_alt = "--help",
         .descr = "Display help."},
+    [F_VERBOSE] =
+        (Arg){.kind = F_VERBOSE,
+            .str = "-v",
+            .str_alt = "--verbose",
+            .descr =
+                "Enable verbose output (disable `#define NOB_NO_ECHO`)."},
     [F_NO_RUN] = (Arg){.kind = F_NO_RUN,
         .str = "-n",
         .str_alt = "--no-run",
@@ -112,9 +125,12 @@ global_var Arg arguments[] = {
                 "Embed content of files in 'src/static' into header files."},
 };
 
+bool nob_no_echo = true;
+
 // program --------------------------------------------------------------------
 
 int main(int argc, char **argv) {
+    // bool nob_no_echo = false;
 
     char *prg_args[24] = {0};
     size_t prg_args_count = 0;
@@ -146,6 +162,10 @@ int main(int argc, char **argv) {
                     strcmp(argv[i], arguments[F_HELP].str_alt) == 0) {
                 print_help();
                 return 0;
+            } else if (strcmp(argv[i], arguments[F_VERBOSE].str) == 0 ||
+                    strcmp(argv[i], arguments[F_VERBOSE].str_alt) == 0) {
+                nob_no_echo = false;
+
             } else if (strcmp(argv[i], arguments[F_NO_RUN].str) == 0 ||
                     strcmp(argv[i], arguments[F_NO_RUN].str_alt) == 0) {
                 no_run = true;
