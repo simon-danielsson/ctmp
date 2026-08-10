@@ -96,6 +96,10 @@ The generated project will have the following hierarchy:
   
 ### CLI commands (nob)
   
+By default, the actions of [./nob.c](init/nob.c) are not echoed to the terminal.
+If you wish to disable this, simply comment out the `NOB_NO_ECHO` definition at
+the top of the file.
+  
 ``` terminal
 ./nob [options|command]
 
