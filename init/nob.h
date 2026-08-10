@@ -1,6 +1,6 @@
 /*
 Update (Simon Danielsson) 2026-08-10:
-The NOB_NO_ECHO macro definition has been patched to work with my own nob.c
+The NOB_NO_ECHO macro definition has been patched to work with the ctmp nob.c
 -v/--verbose flag at runtime.
 All instances of `#ifndef NOB_NO_ECHO ... ...` have been replaced with:
 `if (!nob_no_echo) { ... ...`
