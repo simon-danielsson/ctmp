@@ -99,12 +99,10 @@ global_var Arg arguments[] = {
         .str = "-h",
         .str_alt = "--help",
         .descr = "Display help."},
-    [F_VERBOSE] =
-        (Arg){.kind = F_VERBOSE,
-            .str = "-v",
-            .str_alt = "--verbose",
-            .descr =
-                "Enable verbose output (disable `#define NOB_NO_ECHO`)."},
+    [F_VERBOSE] = (Arg){.kind = F_VERBOSE,
+        .str = "-v",
+        .str_alt = "--verbose",
+        .descr = "Enable verbose output."},
     [F_NO_RUN] = (Arg){.kind = F_NO_RUN,
         .str = "-n",
         .str_alt = "--no-run",
