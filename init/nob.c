@@ -373,7 +373,8 @@ bool collect_src_files(Nob_Walk_Entry entry) {
 }
 
 bool collect_static_files(Nob_Walk_Entry entry) {
-    if (entry.type == FILE_REGULAR && strstr(entry.path, ".h") != 0) {
+    const char *dot = strrchr(entry.path, '.');
+    if (entry.type == FILE_REGULAR && (dot == NULL || strcmp(dot, ".h") != 0)) {
         if (static_files_count >= MAX_SRC_FILES)
             return false;
         static_files[static_files_count++] = strdup(entry.path);
