@@ -47,8 +47,8 @@ global_var char *compilation_flags[] = {
     "-fsanitize=undefined",
     "-fno-omit-frame-pointer",
     "-Wall",
-    "-Wpedantic",
     "-Wshadow",
+    "-Wpedantic",
     "-Werror=format-security",
 };
 
@@ -59,6 +59,7 @@ global_var char *compilation_flags_release[] = {"-flto", "-O2", "-DNDEBUG"};
 #define DIR_BUILD "./build"
 #define DIR_BUILD_DEBUG "./build/debug/"
 #define DIR_BUILD_RELEASE "./build/release/"
+#define DIR_BUILD_INSTALL "./build/install/"
 #define DIR_SRC "./src"
 #define DIR_STATIC "./src/static"
 #define DIR_TESTS "./tests"
@@ -92,6 +93,7 @@ typedef enum {
     F_NO_RUN,
     C_TEST,
     C_RELEASE,
+    C_INSTALL,
     C_EMBED
 } ArgKind;
 
@@ -125,6 +127,11 @@ global_var Arg arguments[] = {
         .str = "release",
         .str_alt = NULL,
         .descr = "Compile and run a release build."},
+    [C_INSTALL] =
+        (Arg){.kind = C_INSTALL,
+            .str = "install",
+            .str_alt = NULL,
+            .descr = "Compile a release binary in the install folder."},
     [C_EMBED] =
         (Arg){.kind = C_EMBED,
             .str = "embed",
@@ -164,6 +171,8 @@ int main(int argc, char **argv) {
                 break;
             } else if (strcmp(argv[i], arguments[C_RELEASE].str) == 0) {
                 build_type = C_RELEASE;
+            } else if (strcmp(argv[i], arguments[C_INSTALL].str) == 0) {
+                build_type = C_INSTALL;
             } else if (strcmp(argv[i], arguments[C_EMBED].str) == 0) {
                 build_type = C_EMBED;
             } else if (strcmp(argv[i], arguments[F_HELP].str) == 0 ||
@@ -208,6 +217,8 @@ int main(int argc, char **argv) {
         return 1;
     if (!nob_mkdir_if_not_exists(DIR_BUILD_RELEASE) && build_type == C_RELEASE)
         return 1;
+    if (!nob_mkdir_if_not_exists(DIR_BUILD_INSTALL) && build_type == C_INSTALL)
+        return 1;
 
     // collect '.c' files
     {
@@ -243,11 +254,18 @@ int main(int argc, char **argv) {
         }
 
         const char *build_folder;
-        if (build_type != C_RELEASE) {
+        if (build_type != C_RELEASE && build_type != C_INSTALL) {
             for (size_t i = 0;
                     i < sizeof(compilation_flags) / sizeof(compilation_flags[0]); i++) {
                 nob_cmd_append(&cmd, compilation_flags[i]);
                 build_folder = DIR_BUILD_DEBUG;
+            }
+        } else if (build_type == C_INSTALL && build_type != C_RELEASE) {
+            for (size_t i = 0; i < sizeof(compilation_flags_release) /
+                    sizeof(compilation_flags_release[0]);
+                    i++) {
+                nob_cmd_append(&cmd, compilation_flags_release[i]);
+                build_folder = DIR_BUILD_INSTALL;
             }
         } else {
             for (size_t i = 0; i < sizeof(compilation_flags_release) /
@@ -257,11 +275,15 @@ int main(int argc, char **argv) {
                 build_folder = DIR_BUILD_RELEASE;
             }
         }
-
-        snprintf(bin_name, 256, "%s%s-%.7s-%s", build_folder, PROJ_NAME,
-                env_variables.git_hash, env_variables.git_tag);
-
-        nob_cc_output(&cmd, bin_name);
+        if (build_type == C_INSTALL) {
+            snprintf(bin_name, 256, "%s%s", build_folder, PROJ_NAME);
+            nob_cmd_append(&cmd, "-o", bin_name);
+            nob_cmd_append(&cmd, "-lm");
+        } else {
+            snprintf(bin_name, 256, "%s%s-%.7s-%s", build_folder, PROJ_NAME,
+                    env_variables.git_hash, env_variables.git_tag);
+            nob_cc_output(&cmd, bin_name);
+        }
 
         for (size_t i = 0; i < src_files_count; i++) {
             nob_cmd_append(&cmd, src_files[i]);
@@ -272,7 +294,7 @@ int main(int argc, char **argv) {
     }
 
     // run
-    if (!no_run) {
+    if (!no_run && build_type != C_INSTALL) {
         Nob_Cmd cmd_run = {0};
         nob_cmd_append(&cmd_run, bin_name);
         for (size_t i = 0; i < prg_args_count; i++) {
@@ -373,9 +395,8 @@ bool collect_src_files(Nob_Walk_Entry entry) {
 }
 
 bool collect_static_files(Nob_Walk_Entry entry) {
-    const char *dot = strrchr(entry.path, '.');
-    if (entry.type == FILE_REGULAR && (dot == NULL || strcmp(dot, ".h") != 0)) {
-        if (static_files_count >= MAX_SRC_FILES)
+    if (entry.type == FILE_REGULAR && !strstr(entry.path, ".h")) {
+        if (static_files_count + 1 >= MAX_SRC_FILES)
             return false;
         static_files[static_files_count++] = strdup(entry.path);
     }
@@ -429,6 +450,8 @@ intern_fn void get_git_details(ArgKind build_kind) {
         char *tmp;
         if (build_kind == C_RELEASE) {
             tmp = DIR_BUILD_RELEASE "git_tag.tmp";
+        } else if (build_kind == C_INSTALL) {
+            tmp = DIR_BUILD_INSTALL "git_tag.tmp";
         } else {
             tmp = DIR_BUILD_DEBUG "git_tag.tmp";
         }
@@ -441,9 +464,11 @@ intern_fn void get_git_details(ArgKind build_kind) {
         nob_cmd_append(&cmd, "git", "rev-parse", "HEAD");
         char *tmp;
         if (build_kind == C_RELEASE) {
-            tmp = DIR_BUILD_RELEASE "git_hash.tmp";
+            tmp = DIR_BUILD_RELEASE "git_tag.tmp";
+        } else if (build_kind == C_INSTALL) {
+            tmp = DIR_BUILD_INSTALL "git_tag.tmp";
         } else {
-            tmp = DIR_BUILD_DEBUG "git_hash.tmp";
+            tmp = DIR_BUILD_DEBUG "git_tag.tmp";
         }
         get_git_details_helper(env_variables.git_hash);
     }
